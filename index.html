@@ -36,6 +36,7 @@
   .alert { border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 10px; }
   .alert.amber { background: #fef3e2; color: #7c4a00; border: 1px solid #f5c842; }
   .alert.blue { background: #e8f0fe; color: #1a4fa0; border: 1px solid #93b4f5; }
+  .alert.red { background: #fdecea; color: #8b1a1a; border: 1px solid #f5a5a5; }
   .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
   .metric { background: #f5f5f3; border-radius: 8px; padding: 12px 14px; }
   .metric .val { font-size: 20px; font-weight: 600; color: #1a1a1a; line-height: 1.2; }
@@ -49,11 +50,9 @@
   .sheet-table th { text-align: left; font-size: 11px; font-weight: 500; color: #888; padding: 8px 10px; background: #fafaf8; position: sticky; top: 0; border-bottom: 1px solid #e5e5e3; }
   .sheet-table td { padding: 8px 10px; border-bottom: 1px solid #f5f5f3; color: #333; }
   .sheet-table tr.best td { background: #f0faf2; color: #1a5c28; }
-  .sheet-table tr.nearest td { background: #fef9ec; color: #6b3d00; }
   .sheet-table tr:last-child td { border-bottom: none; }
   .badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 20px; margin-left: 4px; vertical-align: middle; }
   .badge.green { background: #c8f0d0; color: #1a5c28; }
-  .badge.amber { background: #fde9b0; color: #6b3d00; }
   .invoice { border-radius: 10px; border: 1px solid #e5e5e3; overflow: hidden; margin-top: 16px; }
   .invoice-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-bottom: 1px solid #f0f0ee; font-size: 14px; color: #555; }
   .invoice-row span:last-child { color: #1a1a1a; font-weight: 500; }
@@ -67,6 +66,7 @@
   .coming-soon h3 { font-size: 18px; font-weight: 500; color: #666; margin-bottom: 6px; }
   .coming-soon p { font-size: 14px; }
   .subtitle { font-size: 12px; font-weight: 400; color: #aaa; }
+  .max-info { font-size: 12px; color: #999; margin-top: 6px; }
 </style>
 </head>
 <body>
@@ -93,6 +93,7 @@
       <button class="unit-btn active" id="btn-in" onclick="setUnit('in')">Inches</button>
       <button class="unit-btn" id="btn-ft" onclick="setUnit('ft')">Feet</button>
     </div>
+    <div class="max-info">Standard sizes: min 3 &times; 4 ft &mdash; max 7 &times; 44 ft &nbsp;|&nbsp; Minimum charge: 10 sq ft</div>
   </div>
 
   <div class="card">
@@ -109,35 +110,14 @@
     </div>
   </div>
 
-  <div class="card">
+  <div id="rounding-card" class="card">
     <div class="card-title">TWPC rounding</div>
     <div class="rounding-box" id="rounding-steps">—</div>
   </div>
 
   <div id="alert-area"></div>
 
-  <div class="card">
-    <div class="card-title">Best sheet result</div>
-    <div class="metric-grid" id="summary-cards">
-      <div class="metric"><div class="val">—</div><div class="mlbl">Enter dimensions above</div></div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">All fitting sheets &nbsp;<span class="subtitle" id="sheet-subtitle">— sorted by waste</span></div>
-    <div class="sheet-scroll">
-      <table class="sheet-table">
-        <thead><tr>
-          <th>Standard size</th><th>Sheet area</th><th>Waste %</th><th>Waste sq ft</th><th>Total cost</th>
-        </tr></thead>
-        <tbody id="sheet-list"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="invoice" id="invoice" style="display:none;">
-    <div id="invoice-rows"></div>
-  </div>
+  <div id="results-area"></div>
 
 </div>
 </div>
@@ -154,12 +134,15 @@
 </div>
 
 <script>
-const WIDTHS  = [8,10,12,14,16,18,20,22,24,26,28,30,32,36,40,44];
+const WIDTHS  = [4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,36,40,44];
 const HEIGHTS = [3,4,5,6,7];
 const SHEETS  = [];
 HEIGHTS.forEach(h => WIDTHS.forEach(w => SHEETS.push([h, w])));
 
-const MIN_SQ_FT = 20;
+const MIN_SQ_FT  = 10;
+const MAX_WIDTH  = 44;
+const MAX_HEIGHT = 7;
+
 let unit = 'in';
 
 function showTab(id, btn) {
@@ -195,17 +178,6 @@ function decNote(raw, rounded, dim) {
   return `${dim}: ${fmt2(raw)} ft (decimal .${Math.round(dec*100).toString().padStart(2,'0')} &gt; 0.40) &rarr; round up to whole = <strong>${fmt2(rounded)} ft</strong>`;
 }
 
-function findSheet(w, h) {
-  const valid = SHEETS.filter(([sh, sw]) => sw >= w && sh >= h);
-  if (valid.length > 0) return { sheets: valid, isFallback: false };
-  const fallback = [...SHEETS].sort((a, b) => {
-    const aDiff = Math.max(0, w - a[1]) + Math.max(0, h - a[0]);
-    const bDiff = Math.max(0, w - b[1]) + Math.max(0, h - b[0]);
-    return aDiff - bDiff;
-  });
-  return { sheets: [fallback[0]], isFallback: true };
-}
-
 function calc() {
   const raw_w = parseFloat(document.getElementById('inp-w').value) || 0;
   const raw_h = parseFloat(document.getElementById('inp-h').value) || 0;
@@ -218,33 +190,46 @@ function calc() {
   const h_raw = unit === 'in' ? raw_h / 12 : raw_h;
   const w_r   = twpcRound(w_raw);
   const h_r   = twpcRound(h_raw);
+
+  // Show rounding steps always
+  document.getElementById('rounding-steps').innerHTML = `
+    <div class="step"><span class="step-num">1</span><span>${decNote(w_raw, w_r, 'Width')}</span></div>
+    <div class="step"><span class="step-num">2</span><span>${decNote(h_raw, h_r, 'Height')}</span></div>
+    <div class="step"><span class="step-num">3</span><span>Calculated area: ${fmt2(w_r)} &times; ${fmt2(h_r)} = <strong>${fmt2(w_r * h_r)} sq ft</strong></span></div>
+  `;
+
+  // CHECK: exceeds maximum standard size
+  if (w_r > MAX_WIDTH || h_r > MAX_HEIGHT) {
+    let exceeded = [];
+    if (w_r > MAX_WIDTH) exceeded.push(`width ${fmt2(w_r)} ft exceeds max ${MAX_WIDTH} ft`);
+    if (h_r > MAX_HEIGHT) exceeded.push(`height ${fmt2(h_r)} ft exceeds max ${MAX_HEIGHT} ft`);
+    document.getElementById('alert-area').innerHTML = `
+      <div class="alert red">
+        <strong>Order exceeds maximum standard size (7 &times; 44 ft):</strong> ${exceeded.join(' &amp; ')}.<br>
+        This order cannot be calculated &mdash; please advise the customer accordingly.
+      </div>`;
+    document.getElementById('results-area').innerHTML = '';
+    return;
+  }
+
   const rawSqFt     = fmt2(w_r * h_r);
   const chargedSqFt = Math.max(rawSqFt, MIN_SQ_FT);
   const isMin       = chargedSqFt > rawSqFt;
 
-  document.getElementById('rounding-steps').innerHTML = `
-    <div class="step"><span class="step-num">1</span><span>${decNote(w_raw, w_r, 'Width')}</span></div>
-    <div class="step"><span class="step-num">2</span><span>${decNote(h_raw, h_r, 'Height')}</span></div>
-    <div class="step"><span class="step-num">3</span><span>Calculated area: ${fmt2(w_r)} &times; ${fmt2(h_r)} = <strong>${rawSqFt} sq ft</strong></span></div>
-    ${isMin ? `<div class="step"><span class="step-num">4</span><span>Below minimum &rarr; charged as <strong>${MIN_SQ_FT} sq ft</strong> per piece</span></div>` : ''}
-  `;
-
-  const { sheets, isFallback } = findSheet(w_r, h_r);
+  // Update rounding box with min charge step if needed
+  if (isMin) {
+    document.getElementById('rounding-steps').innerHTML += `
+      <div class="step"><span class="step-num">4</span><span>Below minimum &rarr; charged as <strong>${MIN_SQ_FT} sq ft</strong> per piece</span></div>`;
+  }
 
   let alerts = '';
-  if (isFallback) {
-    const ns = sheets[0];
-    alerts += `<div class="alert amber">Order size (${fmt2(w_r)} ft &times; ${fmt2(h_r)} ft) exceeds all standard sheets. Using nearest standard sheet <strong>${ns[1]} &times; ${ns[0]} ft</strong> to calculate waste and charges.</div>`;
-  }
   if (isMin) {
     alerts += `<div class="alert blue">Minimum charge applied: order area is ${rawSqFt} sq ft &mdash; charged at <strong>${MIN_SQ_FT} sq ft</strong> per piece. Waste is calculated from actual order size.</div>`;
   }
   document.getElementById('alert-area').innerHTML = alerts;
-  document.getElementById('sheet-subtitle').textContent = isFallback
-    ? '— nearest standard sheet used'
-    : `— ${sheets.length} matching sheets, sorted by waste`;
 
-  const rows = sheets.map(([sh, sw]) => {
+  const valid = SHEETS.filter(([sh, sw]) => sw >= w_r && sh >= h_r);
+  const rows  = valid.map(([sh, sw]) => {
     const sheetSqFt  = fmt2(sh * sw);
     const totalSheet = fmt2(sheetSqFt * qty);
     const totalActual= fmt2(rawSqFt * qty);
@@ -256,48 +241,61 @@ function calc() {
     return { sh, sw, sheetSqFt, waste, wastePct, matCost, wasteCost, total };
   }).sort((a, b) => a.wastePct - b.wastePct);
 
-  const best        = rows[0];
-  const pricePerPc  = fmt2(chargedSqFt * pricePerSqFt);
-  const totalMat    = fmt2(pricePerPc * qty);
+  const best           = rows[0];
+  const pricePerPc     = fmt2(chargedSqFt * pricePerSqFt);
+  const totalMat       = fmt2(pricePerPc * qty);
   const totalWasteCost = fmt2(best.waste * wasteRate);
-  const grand       = fmt2(totalMat + totalWasteCost);
+  const grand          = fmt2(totalMat + totalWasteCost);
 
-  document.getElementById('summary-cards').innerHTML = `
-    <div class="metric ${isFallback ? 'warn' : 'good'}"><div class="val">${best.sw} &times; ${best.sh} ft</div><div class="mlbl">${isFallback ? 'Nearest sheet' : 'Best sheet'}</div></div>
-    <div class="metric"><div class="val">${rawSqFt} sq ft</div><div class="mlbl">Actual order area / piece</div></div>
-    ${isMin ? `<div class="metric info"><div class="val">${chargedSqFt} sq ft</div><div class="mlbl">Charged area / piece (min ${MIN_SQ_FT} sq ft)</div></div>` : ''}
-    <div class="metric warn"><div class="val">${best.waste.toFixed(2)} sq ft</div><div class="mlbl">Total waste material</div></div>
-    <div class="metric danger"><div class="val">${cur} ${totalWasteCost.toFixed(2)}</div><div class="mlbl">Waste charge (${cur} ${wasteRate.toFixed(2)}/sq ft)</div></div>
-    ${pricePerSqFt > 0 ? `<div class="metric info"><div class="val">${cur} ${grand.toFixed(2)}</div><div class="mlbl">Grand total</div></div>` : ''}
-  `;
+  document.getElementById('results-area').innerHTML = `
+    <div class="card">
+      <div class="card-title">Best sheet result</div>
+      <div class="metric-grid" id="summary-cards">
+        <div class="metric good"><div class="val">${best.sw} &times; ${best.sh} ft</div><div class="mlbl">Best sheet</div></div>
+        <div class="metric"><div class="val">${rawSqFt} sq ft</div><div class="mlbl">Actual order area / piece</div></div>
+        ${isMin ? `<div class="metric info"><div class="val">${chargedSqFt} sq ft</div><div class="mlbl">Charged area / piece (min ${MIN_SQ_FT} sq ft)</div></div>` : ''}
+        <div class="metric warn"><div class="val">${best.waste.toFixed(2)} sq ft</div><div class="mlbl">Total waste material</div></div>
+        <div class="metric danger"><div class="val">${cur} ${totalWasteCost.toFixed(2)}</div><div class="mlbl">Waste charge (${cur} ${wasteRate.toFixed(2)}/sq ft)</div></div>
+        ${pricePerSqFt > 0 ? `<div class="metric info"><div class="val">${cur} ${grand.toFixed(2)}</div><div class="mlbl">Grand total</div></div>` : ''}
+      </div>
+    </div>
 
-  document.getElementById('sheet-list').innerHTML = rows.map((r, i) => {
-    const isBest  = i === 0;
-    const costStr = (pricePerSqFt > 0 || wasteRate > 0) ? `${cur} ${r.total.toFixed(2)}` : '&mdash;';
-    const badge   = isFallback
-      ? `<span class="badge amber">Nearest</span>`
-      : (isBest ? `<span class="badge green">Best</span>` : '');
-    return `<tr class="${isFallback ? 'nearest' : (isBest ? 'best' : '')}">
-      <td>${r.sw} &times; ${r.sh} ft ${badge}</td>
-      <td>${r.sheetSqFt} sq ft</td>
-      <td>${r.wastePct.toFixed(1)}%</td>
-      <td>${r.waste.toFixed(2)} sq ft</td>
-      <td>${costStr}</td>
-    </tr>`;
-  }).join('');
+    <div class="card">
+      <div class="card-title">All fitting sheets &nbsp;<span class="subtitle">&mdash; ${rows.length} matching sheets, sorted by waste</span></div>
+      <div class="sheet-scroll">
+        <table class="sheet-table">
+          <thead><tr>
+            <th>Standard size</th><th>Sheet area</th><th>Waste %</th><th>Waste sq ft</th><th>Total cost</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map((r, i) => {
+              const isBest  = i === 0;
+              const costStr = (pricePerSqFt > 0 || wasteRate > 0) ? `${cur} ${r.total.toFixed(2)}` : '&mdash;';
+              const badge   = isBest ? `<span class="badge green">Best</span>` : '';
+              return `<tr class="${isBest ? 'best' : ''}">
+                <td>${r.sw} &times; ${r.sh} ft ${badge}</td>
+                <td>${r.sheetSqFt} sq ft</td>
+                <td>${r.wastePct.toFixed(1)}%</td>
+                <td>${r.waste.toFixed(2)} sq ft</td>
+                <td>${costStr}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-  const inv = document.getElementById('invoice');
-  inv.style.display = 'block';
-  document.getElementById('invoice-rows').innerHTML = `
-    <div class="invoice-row"><span>Actual order area / piece</span><span>${rawSqFt} sq ft</span></div>
-    ${isMin ? `<div class="invoice-row min-line"><span>Minimum charge applied</span><span>${MIN_SQ_FT} sq ft per piece</span></div>` : ''}
-    <div class="invoice-row"><span>Charged area / piece</span><span>${chargedSqFt} sq ft</span></div>
-    <div class="invoice-row"><span>Price per piece</span><span>${cur} ${pricePerPc.toFixed(2)}</span></div>
-    <div class="invoice-row"><span>Quantity</span><span>${qty} pcs</span></div>
-    <div class="invoice-row section"><span>Material cost (${qty} pcs)</span><span>${cur} ${totalMat.toFixed(2)}</span></div>
-    <div class="invoice-row"><span>Total waste (sheet &minus; actual order &times; qty)</span><span>${best.waste.toFixed(2)} sq ft</span></div>
-    <div class="invoice-row waste-line"><span>Waste charge (${cur} ${wasteRate.toFixed(2)} &times; ${best.waste.toFixed(2)} sq ft)</span><span>${cur} ${totalWasteCost.toFixed(2)}</span></div>
-    <div class="invoice-row grand"><span>Grand total</span><span>${cur} ${grand.toFixed(2)}</span></div>
+    <div class="invoice">
+      <div class="invoice-row"><span>Actual order area / piece</span><span>${rawSqFt} sq ft</span></div>
+      ${isMin ? `<div class="invoice-row min-line"><span>Minimum charge applied</span><span>${MIN_SQ_FT} sq ft per piece</span></div>` : ''}
+      <div class="invoice-row"><span>Charged area / piece</span><span>${chargedSqFt} sq ft</span></div>
+      <div class="invoice-row"><span>Price per piece</span><span>${cur} ${pricePerPc.toFixed(2)}</span></div>
+      <div class="invoice-row"><span>Quantity</span><span>${qty} pcs</span></div>
+      <div class="invoice-row section"><span>Material cost (${qty} pcs)</span><span>${cur} ${totalMat.toFixed(2)}</span></div>
+      <div class="invoice-row"><span>Total waste (sheet &minus; actual order &times; qty)</span><span>${best.waste.toFixed(2)} sq ft</span></div>
+      <div class="invoice-row waste-line"><span>Waste charge (${cur} ${wasteRate.toFixed(2)} &times; ${best.waste.toFixed(2)} sq ft)</span><span>${cur} ${totalWasteCost.toFixed(2)}</span></div>
+      <div class="invoice-row grand"><span>Grand total</span><span>${cur} ${grand.toFixed(2)}</span></div>
+    </div>
   `;
 }
 
