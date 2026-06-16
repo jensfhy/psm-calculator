@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LFP Material Calculator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f3; color: #1a1a1a; min-height: 100vh; }
+
+  .app-header { background: #1a1a1a; color: #fff; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+  .app-header h1 { font-size: 18px; font-weight: 500; letter-spacing: -0.3px; }
+  .app-header span { font-size: 13px; color: #888; margin-left: auto; }
+
+  .tab-bar { background: #fff; border-bottom: 1px solid #e5e5e3; display: flex; padding: 0 24px; gap: 0; overflow-x: auto; }
+  .tab-btn { padding: 14px 20px; font-size: 14px; font-weight: 500; border: none; background: transparent; cursor: pointer; color: #666; border-bottom: 2px solid transparent; white-space: nowrap; transition: color 0.15s; }
+  .tab-btn.active { color: #1a1a1a; border-bottom-color: #1a1a1a; }
+  .tab-btn:hover { color: #1a1a1a; }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .page { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+
+  .card { background: #fff; border-radius: 12px; border: 1px solid #e5e5e3; padding: 20px 24px; margin-bottom: 16px; }
+  .card-title { font-size: 14px; font-weight: 500; color: #1a1a1a; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #f0f0ee; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  @media (max-width: 520px) { .grid2, .grid3 { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 380px) { .grid3 { grid-template-columns: 1fr 1fr; } }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 12px; color: #666; }
+  .field input { font-size: 15px; padding: 8px 10px; border: 1px solid #e0e0de; border-radius: 8px; background: #fafaf8; color: #1a1a1a; outline: none; width: 100%; }
+  .field input:focus { border-color: #888; background: #fff; }
+  .field .hint { font-size: 11px; color: #999; }
+
+  .unit-toggle { display: flex; border: 1px solid #e0e0de; border-radius: 8px; overflow: hidden; width: fit-content; margin-bottom: 4px; }
+  .unit-btn { padding: 7px 20px; font-size: 13px; font-weight: 500; border: none; background: transparent; color: #888; cursor: pointer; }
+  .unit-btn.active { background: #1a1a1a; color: #fff; }
+
+  .rounding-box { background: #f5f5f3; border-radius: 8px; padding: 12px 14px; font-size: 13px; color: #555; }
+  .rounding-box strong { color: #1a1a1a; font-weight: 500; }
+  .step { display: flex; gap: 8px; margin: 4px 0; align-items: flex-start; }
+  .step-num { font-size: 11px; background: #fff; border: 1px solid #ddd; border-radius: 50%; min-width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; color: #888; margin-top: 1px; flex-shrink: 0; }
+
+  .alert { border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 10px; }
+  .alert.amber { background: #fef3e2; color: #7c4a00; border: 1px solid #f5c842; }
+  .alert.blue { background: #e8f0fe; color: #1a4fa0; border: 1px solid #93b4f5; }
+
+  .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+  .metric { background: #f5f5f3; border-radius: 8px; padding: 12px 14px; }
+  .metric .val { font-size: 20px; font-weight: 600; color: #1a1a1a; line-height: 1.2; }
+  .metric .mlbl { font-size: 11px; color: #888; margin-top: 3px; }
+  .metric.good .val { color: #2d7a3a; }
+  .metric.warn .val { color: #b85c00; }
+  .metric.danger .val { color: #c0392b; }
+  .metric.info .val { color: #1a4fa0; }
+
+  .sheet-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .sheet-table th { text-align: left; font-size: 11px; font-weight: 500; color: #888; padding: 6px 8px; border-bottom: 1px solid #e5e5e3; }
+  .sheet-table td { padding: 8px 8px; border-bottom: 1px solid #f0f0ee; color: #333; vertical-align: middle; }
+  .sheet-table tr.best td { background: #f0faf2; color: #1a5c28; }
+  .sheet-table tr.nearest td { background: #fef9ec; color: #6b3d00; }
+  .sheet-table tr:last-child td { border-bottom: none; }
+
+  .badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 20px; margin-left: 4px; vertical-align: middle; }
+  .badge.green { background: #c8f0d0; color: #1a5c28; }
+  .badge.amber { background: #fde9b0; color: #6b3d00; }
+
+  .invoice { border-radius: 10px; border: 1px solid #e5e5e3; overflow: hidden; margin-top: 16px; }
+  .invoice-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-bottom: 1px solid #f0f0ee; font-size: 14px; color: #555; }
+  .invoice-row span:last-child { color: #1a1a1a; font-weight: 500; }
+  .invoice-row.waste-line span:last-child { color: #c0392b; }
+  .invoice-row.min-line span:last-child { color: #1a4fa0; }
+  .invoice-row.grand { background: #1a1a1a; border-bottom: none; }
+  .invoice-row.grand span { color: #fff; font-size: 16px; font-weight: 600; }
+
+  .coming-soon { text-align: center; padding: 60px 20px; color: #aaa; }
+  .coming-soon .icon { font-size: 40px; margin-bottom: 12px; }
+  .coming-soon h3 { font-size: 18px; font-weight: 500; color: #666; margin-bottom: 6px; }
+  .coming-soon p { font-size: 14px; }
+
+  .section-gap { margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <h1>LFP Material Calculator</h1>
+  <span>Large Format Printing</span>
+</div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="showTab('twpc')">TWPC Polycarbonate</button>
+  <button class="tab-btn" onclick="showTab('p2')">Product 2</button>
+  <button class="tab-btn" onclick="showTab('p3')">Product 3</button>
+  <button class="tab-btn" onclick="showTab('p4')">Product 4</button>
+</div>
+
+<div id="tab-twpc" class="tab-panel active">
+<div class="page">
+
+  <div class="card">
+    <div class="card-title">Unit</div>
+    <div class="unit-toggle">
+      <button class="unit-btn active" id="btn-in" onclick="setUnit('in')">Inches</button>
+      <button class="unit-btn" id="btn-ft" onclick="setUnit('ft')">Feet</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Order details</div>
+    <div class="grid3 section-gap">
+      <div class="field"><label id="lbl-w">Width (inches)</label><input type="number" id="inp-w" min="0.1" step="0.1" value="24" oninput="calc()"></div>
+      <div class="field"><label id="lbl-h">Height (inches)</label><input type="number" id="inp-h" min="0.1" step="0.1" value="24" oninput="calc()"></div>
+      <div class="field"><label>Quantity (pcs)</label><input type="number" id="inp-qty" min="1" value="1" oninput="calc()"></div>
+    </div>
+    <div class="grid3">
+      <div class="field"><label>Price per sq ft (RM)</label><input type="number" id="inp-price" min="0" step="0.01" value="0" oninput="calc()"></div>
+      <div class="field"><label>Waste charge rate (RM/sq ft)</label><input type="number" id="inp-waste-rate" min="0" step="0.01" value="3.30" oninput="calc()"><div class="hint">Default: RM 3.30 / sq ft</div></div>
+      <div class="field"><label>Currency</label><input type="text" id="inp-cur" value="RM" oninput="calc()"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">TWPC rounding</div>
+    <div class="rounding-box" id="rounding-steps">—</div>
+  </div>
+
+  <div id="alert-area"></div>
+
+  <div class="card">
+    <div class="card-title">Best sheet result</div>
+    <div class="metric-grid" id="summary-cards">
+      <div class="metric"><div class="val">—</div><div class="mlbl">Enter dimensions above</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">All fitting sheets &nbsp;<span style="font-size:12px;font-weight:400;color:#aaa;" id="sheet-list-subtitle">— sorted by waste</span></div>
+    <table class="sheet-table">
+      <thead><tr>
+        <th>Standard size</th><th>Sheet area</th><th>Waste %</th><th>Waste sq ft</th><th>Total cost</th>
+      </tr></thead>
+      <tbody id="sheet-list"></tbody>
+    </table>
+  </div>
+
+  <div class="invoice" id="invoice" style="display:none;">
+    <div id="invoice-rows"></div>
+  </div>
+
+</div>
+</div>
+
+<div id="tab-p2" class="tab-panel">
+  <div class="page">
+    <div class="coming-soon">
+      <div class="icon">🛠</div>
+      <h3>Product 2 — Coming soon</h3>
+      <p>This calculator will be added in the next update.</p>
+    </div>
+  </div>
+</div>
+
+<div id="tab-p3" class="tab-panel">
+  <div class="page">
+    <div class="coming-soon">
+      <div class="icon">🛠</div>
+      <h3>Product 3 — Coming soon</h3>
+      <p>This calculator will be added in the next update.</p>
+    </div>
+  </div>
+</div>
+
+<div id="tab-p4" class="tab-panel">
+  <div class="page">
+    <div class="coming-soon">
+      <div class="icon">🛠</div>
+      <h3>Product 4 — Coming soon</h3>
+      <p>This calculator will be added in the next update.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const SHEETS = [
+  [3,8],[3,10],[3,12],[3,14],[3,16],[3,18],[3,20],
+  [3,22],[3,24],[3,26],[3,28],[3,30],[3,32],[3,36],[3,40],[3,44]
+];
+const MIN_SQ_FT = 20;
+let unit = 'in';
+
+function showTab(id) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function setUnit(u) {
+  unit = u;
+  document.getElementById('btn-in').classList.toggle('active', u === 'in');
+  document.getElementById('btn-ft').classList.toggle('active', u === 'ft');
+  document.getElementById('lbl-w').textContent = u === 'in' ? 'Width (inches)' : 'Width (feet)';
+  document.getElementById('lbl-h').textContent = u === 'in' ? 'Height (inches)' : 'Height (feet)';
+  calc();
+}
+
+function twpcRound(val) {
+  const intPart = Math.floor(val);
+  const dec = parseFloat((val - intPart).toFixed(4));
+  if (dec === 0) return val;
+  if (dec <= 0.4) return intPart + 0.5;
+  return intPart + 1.0;
+}
+
+function fmt2(n) { return parseFloat(n.toFixed(2)); }
+
+function decNote(raw, rounded, dim) {
+  const dec = parseFloat((raw - Math.floor(raw)).toFixed(4));
+  if (dec === 0) return `${dim}: ${fmt2(raw)} ft — no rounding needed = <strong>${fmt2(rounded)} ft</strong>`;
+  if (dec <= 0.4) return `${dim}: ${fmt2(raw)} ft (decimal .${Math.round(dec*100).toString().padStart(2,'0')} &le; 0.40) → round to .5 = <strong>${fmt2(rounded)} ft</strong>`;
+  return `${dim}: ${fmt2(raw)} ft (decimal .${Math.round(dec*100).toString().padStart(2,'0')} &gt; 0.40) → round up to whole = <strong>${fmt2(rounded)} ft</strong>`;
+}
+
+function findSheet(w, h) {
+  const valid = SHEETS.filter(([sh, sw]) => sw >= w && sh >= h);
+  if (valid.length > 0) return { sheets: valid, isFallback: false };
+  const fallback = [...SHEETS].sort((a, b) => {
+    const aDiff = Math.max(0, w - a[1]) + Math.max(0, h - a[0]);
+    const bDiff = Math.max(0, w - b[1]) + Math.max(0, h - b[0]);
+    return aDiff - bDiff;
+  });
+  return { sheets: [fallback[0]], isFallback: true };
+}
+
+function calc() {
+  const raw_w = parseFloat(document.getElementById('inp-w').value) || 0;
+  const raw_h = parseFloat(document.getElementById('inp-h').value) || 0;
+  const qty = Math.max(1, parseInt(document.getElementById('inp-qty').value) || 1);
+  const pricePerSqFt = parseFloat(document.getElementById('inp-price').value) || 0;
+  const wasteRate = parseFloat(document.getElementById('inp-waste-rate').value) || 0;
+  const cur = document.getElementById('inp-cur').value || 'RM';
+
+  const w_raw = unit === 'in' ? raw_w / 12 : raw_w;
+  const h_raw = unit === 'in' ? raw_h / 12 : raw_h;
+  const w_r = twpcRound(w_raw);
+  const h_r = twpcRound(h_raw);
+  const rawSqFt = fmt2(w_r * h_r);
+  const chargedSqFt = Math.max(rawSqFt, MIN_SQ_FT);
+  const isMin = chargedSqFt > rawSqFt;
+
+  document.getElementById('rounding-steps').innerHTML = `
+    <div class="step"><span class="step-num">1</span><span>${decNote(w_raw, w_r, 'Width')}</span></div>
+    <div class="step"><span class="step-num">2</span><span>${decNote(h_raw, h_r, 'Height')}</span></div>
+    <div class="step"><span class="step-num">3</span><span>Calculated area: ${fmt2(w_r)} × ${fmt2(h_r)} = <strong>${rawSqFt} sq ft</strong></span></div>
+    ${isMin ? `<div class="step"><span class="step-num">4</span><span>Below minimum → charged as <strong>${MIN_SQ_FT} sq ft</strong> per piece</span></div>` : ''}
+  `;
+
+  const { sheets, isFallback } = findSheet(w_r, h_r);
+
+  let alerts = '';
+  if (isFallback) {
+    const ns = sheets[0];
+    alerts += `<div class="alert amber">Order size (${fmt2(w_r)} ft × ${fmt2(h_r)} ft) exceeds all standard sheets. Using nearest standard sheet <strong>${ns[1]} × ${ns[0]} ft</strong> to calculate waste and charges.</div>`;
+  }
+  if (isMin) {
+    alerts += `<div class="alert blue">Minimum charge applied: order area is ${rawSqFt} sq ft — charged at <strong>${MIN_SQ_FT} sq ft</strong> per piece. Waste is calculated from actual order size.</div>`;
+  }
+  document.getElementById('alert-area').innerHTML = alerts;
+  document.getElementById('sheet-list-subtitle').textContent = isFallback ? '— nearest standard sheet used' : '— sorted by waste';
+
+  const rows = sheets.map(([sh, sw]) => {
+    const sheetSqFt = fmt2(sh * sw);
+    const totalSheet = fmt2(sheetSqFt * qty);
+    const totalActual = fmt2(rawSqFt * qty);
+    const waste = fmt2(Math.max(0, totalSheet - totalActual));
+    const wastePct = totalSheet > 0 ? (waste / totalSheet * 100) : 0;
+    const matCost = fmt2(chargedSqFt * qty * pricePerSqFt);
+    const wasteCost = fmt2(waste * wasteRate);
+    const total = fmt2(matCost + wasteCost);
+    return { sh, sw, sheetSqFt, waste, wastePct, matCost, wasteCost, total };
+  }).sort((a, b) => a.wastePct - b.wastePct);
+
+  const best = rows[0];
+  const pricePerPc = fmt2(chargedSqFt * pricePerSqFt);
+  const totalMat = fmt2(pricePerPc * qty);
+  const totalWasteCost = fmt2(best.waste * wasteRate);
+  const grand = fmt2(totalMat + totalWasteCost);
+
+  document.getElementById('summary-cards').innerHTML = `
+    <div class="metric ${isFallback ? 'warn' : 'good'}"><div class="val">${best.sw} × ${best.sh} ft</div><div class="mlbl">${isFallback ? 'Nearest sheet' : 'Best sheet'}</div></div>
+    <div class="metric"><div class="val">${rawSqFt} sq ft</div><div class="mlbl">Actual order area / piece</div></div>
+    ${isMin ? `<div class="metric info"><div class="val">${chargedSqFt} sq ft</div><div class="mlbl">Charged area / piece (min ${MIN_SQ_FT} sq ft)</div></div>` : ''}
+    <div class="metric warn"><div class="val">${best.waste.toFixed(2)} sq ft</div><div class="mlbl">Total waste material</div></div>
+    <div class="metric danger"><div class="val">${cur} ${totalWasteCost.toFixed(2)}</div><div class="mlbl">Waste charge (${cur} ${wasteRate.toFixed(2)}/sq ft)</div></div>
+    ${pricePerSqFt > 0 ? `<div class="metric info"><div class="val">${cur} ${grand.toFixed(2)}</div><div class="mlbl">Grand total</div></div>` : ''}
+  `;
+
+  document.getElementById('sheet-list').innerHTML = rows.map((r, i) => {
+    const isBest = i === 0;
+    const cost = (pricePerSqFt > 0 || wasteRate > 0) ? `${cur} ${r.total.toFixed(2)}` : '—';
+    const badge = isFallback
+      ? `<span class="badge amber">Nearest</span>`
+      : (isBest ? `<span class="badge green">Best</span>` : '');
+    return `<tr class="${isFallback ? 'nearest' : (isBest ? 'best' : '')}">
+      <td>${r.sw} × ${r.sh} ft ${badge}</td>
+      <td>${r.sheetSqFt} sq ft</td>
+      <td>${r.wastePct.toFixed(1)}%</td>
+      <td>${r.waste.toFixed(2)} sq ft</td>
+      <td>${cost}</td>
+    </tr>`;
+  }).join('');
+
+  const inv = document.getElementById('invoice');
+  inv.style.display = 'block';
+  document.getElementById('invoice-rows').innerHTML = `
+    <div class="invoice-row"><span>Actual order area / piece</span><span>${rawSqFt} sq ft</span></div>
+    ${isMin ? `<div class="invoice-row min-line"><span>Minimum charge applied</span><span>${MIN_SQ_FT} sq ft per piece</span></div>` : ''}
+    <div class="invoice-row"><span>Charged area / piece</span><span>${chargedSqFt} sq ft</span></div>
+    <div class="invoice-row"><span>Price per piece</span><span>${cur} ${pricePerPc.toFixed(2)}</span></div>
+    <div class="invoice-row"><span>Quantity</span><span>${qty} pcs</span></div>
+    <div class="invoice-row" style="border-top: 1px solid #e5e5e3;"><span style="font-weight:500;color:#1a1a1a;">Material cost (${qty} pcs)</span><span style="font-weight:600;">${cur} ${totalMat.toFixed(2)}</span></div>
+    <div class="invoice-row"><span>Total waste (sheet − actual order × qty)</span><span>${best.waste.toFixed(2)} sq ft</span></div>
+    <div class="invoice-row waste-line"><span>Waste charge (${cur} ${wasteRate.toFixed(2)} × ${best.waste.toFixed(2)} sq ft)</span><span>${cur} ${totalWasteCost.toFixed(2)}</span></div>
+    <div class="invoice-row grand"><span>Grand total</span><span>${cur} ${grand.toFixed(2)}</span></div>
+  `;
+}
+
+calc();
+</script>
+</body>
+</html>
