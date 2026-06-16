@@ -166,6 +166,7 @@ function twpcRound(val) {
   const dec = parseFloat((val - intPart).toFixed(4));
   if (dec === 0) return val;
   if (dec <= 0.4) return intPart + 0.5;
+  if (dec === 0.5) return intPart + 0.5;
   return intPart + 1.0;
 }
 
@@ -174,8 +175,8 @@ function fmt2(n) { return parseFloat(n.toFixed(2)); }
 function decNote(raw, rounded, dim) {
   const dec = parseFloat((raw - Math.floor(raw)).toFixed(4));
   if (dec === 0) return `${dim}: ${fmt2(raw)} ft &mdash; no rounding needed = <strong>${fmt2(rounded)} ft</strong>`;
-  if (dec <= 0.4) return `${dim}: ${fmt2(raw)} ft (decimal .${Math.round(dec*100).toString().padStart(2,'0')} &le; 0.40) &rarr; round to .5 = <strong>${fmt2(rounded)} ft</strong>`;
-  return `${dim}: ${fmt2(raw)} ft (decimal .${Math.round(dec*100).toString().padStart(2,'0')} &gt; 0.40) &rarr; round up to whole = <strong>${fmt2(rounded)} ft</strong>`;
+  if (dec <= 0.5) return `${dim}: ${fmt2(raw)} ft (decimal .${Math.round(dec*100).toString().padStart(2,'0')} &le; 0.50) &rarr; round to .5 = <strong>${fmt2(rounded)} ft</strong>`;
+  return `${dim}: ${fmt2(raw)} ft (decimal .${Math.round(dec*100).toString().padStart(2,'0')} &gt; 0.50) &rarr; round up to whole = <strong>${fmt2(rounded)} ft</strong>`;
 }
 
 function calc() {
