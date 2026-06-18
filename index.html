@@ -60,6 +60,18 @@
   .coming-soon { text-align: center; padding: 60px 20px; color: #aaa; }
   .coming-soon h3 { font-size: 18px; font-weight: 500; color: #666; margin-bottom: 6px; }
   .max-info { font-size: 12px; color: #999; margin-top: 8px; }
+  .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .metric { background: #f5f5f3; border-radius: 8px; padding: 12px 14px; }
+  .metric .val { font-size: 20px; font-weight: 600; color: #1a1a1a; }
+  .metric .mlbl { font-size: 11px; color: #888; margin-top: 3px; }
+  .metric.good .val { color: #2d7a3a; }
+  #row-body input, #row-body select { font-size: 12.5px; padding: 6px 7px; border: 1px solid #e0e0de; border-radius: 8px; background: #fafaf8; color: #1a1a1a; outline: none; width: 100%; }
+  #row-body input:focus, #row-body select:focus { border-color: #999; background: #fff; }
+  #row-body input[readonly] { background: #f0f0ee; color: #555; }
+  #row-body td { padding: 5px; vertical-align: middle; }
+  .rmbtn { background: transparent; border: none; color: #aaa; cursor: pointer; font-size: 16px; padding: 4px; }
+  .rmbtn:hover { color: #c0392b; }
+  .row-total-cell { font-weight: 600; color: #2d7a3a; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -153,41 +165,35 @@
 <div class="page">
 
   <div class="card">
-    <div class="card-title">Order details</div>
-    <div class="g4">
-      <div class="field"><label>Width</label><input type="number" id="nc-w" min="0.01" step="0.01" value="26.4" oninput="ncCalc()"></div>
-      <div class="field"><label>Height</label><input type="number" id="nc-h" min="0.01" step="0.01" value="71" oninput="ncCalc()"></div>
-      <div class="field"><label>Unit</label>
-        <select id="nc-unit" onchange="ncCalc()">
-          <option value="in" selected>inch</option>
-          <option value="mm">mm</option>
-          <option value="cm">cm</option>
-          <option value="m">m</option>
-          <option value="ft">ft</option>
-        </select>
-      </div>
-      <div class="field"><label>Quantity (pcs)</label><input type="number" id="nc-qty" min="1" value="5" oninput="ncCalc()"></div>
+    <div class="card-title" style="justify-content:space-between;">
+      <span>Order details</span>
+      <button class="unit-btn" style="background:transparent;color:#1a1a1a;border:1px solid #e0e0de;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;" onclick="addRow()">+ Add row</button>
+    </div>
+    <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px;">
+      <thead><tr>
+        <th style="text-align:left;font-size:10.5px;font-weight:500;color:#888;padding:6px 5px;border-bottom:1px solid #f0f0ee;white-space:nowrap;">Width</th>
+        <th style="text-align:left;font-size:10.5px;font-weight:500;color:#888;padding:6px 5px;border-bottom:1px solid #f0f0ee;white-space:nowrap;">Height</th>
+        <th style="text-align:left;font-size:10.5px;font-weight:500;color:#888;padding:6px 5px;border-bottom:1px solid #f0f0ee;white-space:nowrap;">Unit</th>
+        <th style="text-align:left;font-size:10.5px;font-weight:500;color:#888;padding:6px 5px;border-bottom:1px solid #f0f0ee;white-space:nowrap;">Qty</th>
+        <th style="text-align:left;font-size:10.5px;font-weight:500;color:#888;padding:6px 5px;border-bottom:1px solid #f0f0ee;white-space:nowrap;">Rounded sq ft</th>
+        <th style="text-align:left;font-size:10.5px;font-weight:500;color:#888;padding:6px 5px;border-bottom:1px solid #f0f0ee;white-space:nowrap;">Price/sq ft (RM)</th>
+        <th style="text-align:left;font-size:10.5px;font-weight:500;color:#888;padding:6px 5px;border-bottom:1px solid #f0f0ee;white-space:nowrap;">SST %</th>
+        <th style="text-align:left;font-size:10.5px;font-weight:500;color:#888;padding:6px 5px;border-bottom:1px solid #f0f0ee;white-space:nowrap;">Row total (RM)</th>
+        <th style="border-bottom:1px solid #f0f0ee;"></th>
+      </tr></thead>
+      <tbody id="row-body"></tbody>
+    </table>
     </div>
   </div>
 
   <div class="card">
-    <div class="card-title">Area calculation</div>
-    <div class="g2">
-      <div class="field"><label>Total area (sq ft, all pcs)</label><input type="text" id="nc-total-area" readonly></div>
-      <div class="field"><label>Rounded up (sq ft)</label><input type="text" id="nc-rounded" readonly></div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">Pricing</div>
-    <div class="g3">
-      <div class="field"><label>Price per sq ft (RM)</label><input type="number" id="nc-price" min="0" step="0.01" value="0" oninput="ncCalc()"></div>
-      <div class="field"><label>SST (%)</label><input type="number" id="nc-sst" min="0" step="0.1" value="10" oninput="ncCalc()"></div>
-      <div class="field"><label>Subtotal</label><input type="text" id="nc-sub" readonly></div>
-    </div>
-    <div class="res-row">
-      <div><div class="res-label">Total price (incl. SST)</div><div class="res-sub" id="nc-breakdown">—</div></div>
-      <div class="res-val green" id="nc-total">RM 0.00</div>
+    <div class="card-title">Summary</div>
+    <div class="metric-grid">
+      <div class="metric"><div class="val" id="m-total-area">—</div><div class="mlbl">Total rounded area (sq ft)</div></div>
+      <div class="metric"><div class="val" id="m-subtotal">—</div><div class="mlbl">Subtotal (before SST)</div></div>
+      <div class="metric"><div class="val" id="m-sst">—</div><div class="mlbl">Total SST</div></div>
+      <div class="metric good"><div class="val" id="m-grand">—</div><div class="mlbl">Grand total</div></div>
     </div>
   </div>
 
@@ -363,36 +369,75 @@ function calc() {
 
 calc();
 
-// ── Normal Calculation (Product 2) ──
+// ── Normal Calculation (Product 2) — multi-row table ──
 const NC_UNIT_TO_FT = { in: 1/12, mm: 1/304.8, cm: 1/30.48, m: 3.28084, ft: 1 };
+let ncRows = [
+  { id: 0, w: 0, h: 0, unit: 'in', qty: 1, price: 0, sst: 10 },
+  { id: 1, w: 0, h: 0, unit: 'in', qty: 1, price: 0, sst: 10 },
+  { id: 2, w: 0, h: 0, unit: 'in', qty: 1, price: 0, sst: 10 },
+  { id: 3, w: 0, h: 0, unit: 'in', qty: 1, price: 0, sst: 10 },
+  { id: 4, w: 0, h: 0, unit: 'in', qty: 1, price: 0, sst: 10 },
+  { id: 5, w: 0, h: 0, unit: 'in', qty: 1, price: 0, sst: 10 },
+  { id: 6, w: 0, h: 0, unit: 'in', qty: 1, price: 0, sst: 10 }
+];
+let ncNextId = 7;
 
-function ncCalc() {
-  const w = parseFloat(document.getElementById('nc-w').value) || 0;
-  const h = parseFloat(document.getElementById('nc-h').value) || 0;
-  const unit = document.getElementById('nc-unit').value;
-  const qty = Math.max(1, parseInt(document.getElementById('nc-qty').value) || 1);
-  const price = parseFloat(document.getElementById('nc-price').value) || 0;
-  const sst = parseFloat(document.getElementById('nc-sst').value) || 0;
-
-  const factor = NC_UNIT_TO_FT[unit];
-  const wFt = w * factor;
-  const hFt = h * factor;
-
-  const totalSqFt = f2(wFt * hFt * qty);
-  const roundedUp = Math.ceil(totalSqFt);
-
-  document.getElementById('nc-total-area').value = totalSqFt.toFixed(2) + ' sq ft';
-  document.getElementById('nc-rounded').value = roundedUp + ' sq ft';
-
-  const sub = f2(roundedUp * price);
-  const sstAmt = f2(sub * sst / 100);
-  const total = f2(sub + sstAmt);
-
-  document.getElementById('nc-sub').value = rm(sub);
-  document.getElementById('nc-breakdown').textContent = `${roundedUp} sq ft × RM ${price.toFixed(2)} + ${sst}% SST`;
-  document.getElementById('nc-total').textContent = rm(total);
+function addRow(){
+  ncRows.push({ id: ncNextId++, w: 0, h: 0, unit: 'in', qty: 1, price: 0, sst: 10 });
+  ncRender();
 }
-ncCalc();
+function removeRow(id){
+  ncRows = ncRows.filter(r => r.id !== id);
+  ncRender();
+}
+function updateRow(id, field, val){
+  const row = ncRows.find(r => r.id === id);
+  if (!row) return;
+  row[field] = (field === 'unit') ? val : parseFloat(val) || 0;
+  ncRender();
+}
+
+function ncRender(){
+  let totalArea = 0, totalSub = 0, totalSst = 0, totalGrand = 0;
+
+  document.getElementById('row-body').innerHTML = ncRows.map(r => {
+    const factor = NC_UNIT_TO_FT[r.unit];
+    const area = f2(r.w * factor * r.h * factor * (r.qty || 1));
+    const rounded = Math.ceil(area);
+    const sub = f2(rounded * r.price);
+    const sstAmt = f2(sub * r.sst / 100);
+    const rowTotal = f2(sub + sstAmt);
+
+    totalArea += rounded;
+    totalSub += sub;
+    totalSst += sstAmt;
+    totalGrand += rowTotal;
+
+    return `<tr>
+      <td><input type="number" step="0.01" value="${r.w}" onchange="updateRow(${r.id},'w',this.value)" style="min-width:60px"></td>
+      <td><input type="number" step="0.01" value="${r.h}" onchange="updateRow(${r.id},'h',this.value)" style="min-width:60px"></td>
+      <td><select onchange="updateRow(${r.id},'unit',this.value)" style="min-width:64px">
+        <option value="in" ${r.unit==='in'?'selected':''}>inch</option>
+        <option value="mm" ${r.unit==='mm'?'selected':''}>mm</option>
+        <option value="cm" ${r.unit==='cm'?'selected':''}>cm</option>
+        <option value="m" ${r.unit==='m'?'selected':''}>m</option>
+        <option value="ft" ${r.unit==='ft'?'selected':''}>ft</option>
+      </select></td>
+      <td><input type="number" min="1" value="${r.qty}" onchange="updateRow(${r.id},'qty',this.value)" style="min-width:50px"></td>
+      <td><input type="text" value="${rounded}" readonly style="min-width:60px"></td>
+      <td><input type="number" step="0.01" value="${r.price}" onchange="updateRow(${r.id},'price',this.value)" style="min-width:70px"></td>
+      <td><input type="number" step="0.1" value="${r.sst}" onchange="updateRow(${r.id},'sst',this.value)" style="min-width:55px"></td>
+      <td class="row-total-cell">${rm(rowTotal)}</td>
+      <td><button class="rmbtn" onclick="removeRow(${r.id})" aria-label="Remove row"><i class="ti ti-trash"></i>&#10005;</button></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('m-total-area').textContent = totalArea + ' sq ft';
+  document.getElementById('m-subtotal').textContent = rm(f2(totalSub));
+  document.getElementById('m-sst').textContent = rm(f2(totalSst));
+  document.getElementById('m-grand').textContent = rm(f2(totalGrand));
+}
+ncRender();
 </script>
 </body>
 </html>
