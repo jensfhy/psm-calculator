@@ -357,6 +357,8 @@ function calc() {
   } else {
     document.getElementById('sheet-badge-area').innerHTML =
       `<div class="alert red">No single standard sheet can fit all ${qty} pieces. Please reduce quantity or size.</div>`;
+    ['custom-card','grand-card'].forEach(id => document.getElementById(id).style.display = 'none');
+  }
 }
 
 calc();
