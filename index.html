@@ -71,7 +71,7 @@
 
 <div class="tab-bar">
   <button class="tab-btn active" onclick="showTab('twpc', this)">TWPC Polycarbonate</button>
-  <button class="tab-btn" onclick="showTab('p2', this)">Product 2</button>
+  <button class="tab-btn" onclick="showTab('p2', this)">Normal Calculation</button>
   <button class="tab-btn" onclick="showTab('p3', this)">Product 3</button>
   <button class="tab-btn" onclick="showTab('p4', this)">Product 4</button>
 </div>
@@ -149,7 +149,50 @@
 </div>
 </div>
 
-<div id="tab-p2" class="tab-panel"><div class="page"><div class="coming-soon"><h3>Product 2 — Coming soon</h3><p>This calculator will be added in the next update.</p></div></div></div>
+<div id="tab-p2" class="tab-panel">
+<div class="page">
+
+  <div class="card">
+    <div class="card-title">Order details</div>
+    <div class="g4">
+      <div class="field"><label>Width</label><input type="number" id="nc-w" min="0.01" step="0.01" value="26.4" oninput="ncCalc()"></div>
+      <div class="field"><label>Height</label><input type="number" id="nc-h" min="0.01" step="0.01" value="71" oninput="ncCalc()"></div>
+      <div class="field"><label>Unit</label>
+        <select id="nc-unit" onchange="ncCalc()">
+          <option value="in" selected>inch</option>
+          <option value="mm">mm</option>
+          <option value="cm">cm</option>
+          <option value="m">m</option>
+          <option value="ft">ft</option>
+        </select>
+      </div>
+      <div class="field"><label>Quantity (pcs)</label><input type="number" id="nc-qty" min="1" value="5" oninput="ncCalc()"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Area calculation</div>
+    <div class="g2">
+      <div class="field"><label>Total area (sq ft, all pcs)</label><input type="text" id="nc-total-area" readonly></div>
+      <div class="field"><label>Rounded up (sq ft)</label><input type="text" id="nc-rounded" readonly></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Pricing</div>
+    <div class="g3">
+      <div class="field"><label>Price per sq ft (RM)</label><input type="number" id="nc-price" min="0" step="0.01" value="0" oninput="ncCalc()"></div>
+      <div class="field"><label>SST (%)</label><input type="number" id="nc-sst" min="0" step="0.1" value="10" oninput="ncCalc()"></div>
+      <div class="field"><label>Subtotal</label><input type="text" id="nc-sub" readonly></div>
+    </div>
+    <div class="res-row">
+      <div><div class="res-label">Total price (incl. SST)</div><div class="res-sub" id="nc-breakdown">—</div></div>
+      <div class="res-val green" id="nc-total">RM 0.00</div>
+    </div>
+  </div>
+
+</div>
+</div>
 <div id="tab-p3" class="tab-panel"><div class="page"><div class="coming-soon"><h3>Product 3 — Coming soon</h3><p>This calculator will be added in the next update.</p></div></div></div>
 <div id="tab-p4" class="tab-panel"><div class="page"><div class="coming-soon"><h3>Product 4 — Coming soon</h3><p>This calculator will be added in the next update.</p></div></div></div>
 
@@ -314,11 +357,40 @@ function calc() {
   } else {
     document.getElementById('sheet-badge-area').innerHTML =
       `<div class="alert red">No single standard sheet can fit all ${qty} pieces. Please reduce quantity or size.</div>`;
-    ['custom-card','grand-card'].forEach(id => document.getElementById(id).style.display = 'none');
-  }
 }
 
 calc();
+
+// ── Normal Calculation (Product 2) ──
+const NC_UNIT_TO_FT = { in: 1/12, mm: 1/304.8, cm: 1/30.48, m: 3.28084, ft: 1 };
+
+function ncCalc() {
+  const w = parseFloat(document.getElementById('nc-w').value) || 0;
+  const h = parseFloat(document.getElementById('nc-h').value) || 0;
+  const unit = document.getElementById('nc-unit').value;
+  const qty = Math.max(1, parseInt(document.getElementById('nc-qty').value) || 1);
+  const price = parseFloat(document.getElementById('nc-price').value) || 0;
+  const sst = parseFloat(document.getElementById('nc-sst').value) || 0;
+
+  const factor = NC_UNIT_TO_FT[unit];
+  const wFt = w * factor;
+  const hFt = h * factor;
+
+  const totalSqFt = f2(wFt * hFt * qty);
+  const roundedUp = Math.ceil(totalSqFt);
+
+  document.getElementById('nc-total-area').value = totalSqFt.toFixed(2) + ' sq ft';
+  document.getElementById('nc-rounded').value = roundedUp + ' sq ft';
+
+  const sub = f2(roundedUp * price);
+  const sstAmt = f2(sub * sst / 100);
+  const total = f2(sub + sstAmt);
+
+  document.getElementById('nc-sub').value = rm(sub);
+  document.getElementById('nc-breakdown').textContent = `${roundedUp} sq ft × RM ${price.toFixed(2)} + ${sst}% SST`;
+  document.getElementById('nc-total').textContent = rm(total);
+}
+ncCalc();
 </script>
 </body>
 </html>
