@@ -93,9 +93,17 @@
 
   <div class="card">
     <div class="card-title">Unit</div>
-    <div class="unit-toggle">
-      <button class="unit-btn active" id="btn-in" onclick="setUnit('in')">Inches</button>
-      <button class="unit-btn" id="btn-ft" onclick="setUnit('ft')">Feet</button>
+    <div class="g2" style="max-width:300px;">
+      <div class="field">
+        <label>Select unit</label>
+        <select id="twpc-unit" onchange="setUnit(this.value)" style="font-size:14px;padding:8px 10px;border:1px solid #e0e0de;border-radius:8px;background:#fafaf8;color:#1a1a1a;outline:none;">
+          <option value="in" selected>Inches (in)</option>
+          <option value="mm">Millimetres (mm)</option>
+          <option value="cm">Centimetres (cm)</option>
+          <option value="m">Metres (m)</option>
+          <option value="ft">Feet (ft)</option>
+        </select>
+      </div>
     </div>
     <div class="max-info">Standard sizes: min 3 &times; 4 ft — max 7 &times; 44 ft &nbsp;|&nbsp; Min custom charge: 10 sq ft (total all pieces)</div>
   </div>
@@ -216,12 +224,14 @@ function showTab(id, btn) {
   document.getElementById('tab-' + id).classList.add('active');
   btn.classList.add('active');
 }
+const TWPC_UNIT_LABELS = { in: 'inches', mm: 'mm', cm: 'cm', m: 'm', ft: 'feet' };
+const TWPC_UNIT_TO_FT  = { in: 1/12, mm: 1/304.8, cm: 1/30.48, m: 3.28084, ft: 1 };
+
 function setUnit(u) {
   unit = u;
-  document.getElementById('btn-in').classList.toggle('active', u === 'in');
-  document.getElementById('btn-ft').classList.toggle('active', u === 'ft');
-  document.getElementById('lbl-w').textContent = u === 'in' ? 'Width (inches)' : 'Width (feet)';
-  document.getElementById('lbl-h').textContent = u === 'in' ? 'Height (inches)' : 'Height (feet)';
+  const lbl = TWPC_UNIT_LABELS[u];
+  document.getElementById('lbl-w').textContent = `Width (${lbl})`;
+  document.getElementById('lbl-h').textContent = `Height (${lbl})`;
   calc();
 }
 function twpcRound(v) {
@@ -243,16 +253,24 @@ function decNote(raw, rounded, dim) {
 // Find smallest sheet where ALL qty pieces physically fit (rows x cols layout)
 // Tries both normal and rotated orientation
 function findBestSheet(pw, ph, qty) {
+  // Try to find smallest sheet where all qty pieces fit on 1 sheet
   const candidates = SHEETS.filter(([sh, sw]) => {
-    // normal orientation
     const fit1 = Math.floor(sw / pw) * Math.floor(sh / ph);
-    // rotated orientation
     const fit2 = Math.floor(sw / ph) * Math.floor(sh / pw);
     return Math.max(fit1, fit2) >= qty;
   });
-  if (!candidates.length) return null;
-  // Pick smallest sheet by area
-  return candidates.sort((a, b) => (a[0] * a[1]) - (b[0] * b[1]))[0];
+  if (candidates.length) {
+    return { sheet: candidates.sort((a, b) => (a[0]*a[1]) - (b[0]*b[1]))[0], sheetsNeeded: 1 };
+  }
+  // Fall back: find smallest sheet that fits at least 1 piece, use multiple sheets
+  const single = SHEETS.filter(([sh, sw]) => sw >= pw && sh >= ph);
+  if (single.length) {
+    const best = single.sort((a, b) => (a[0]*a[1]) - (b[0]*b[1]))[0];
+    const pps = piecesOnSheet(pw, ph, best[1], best[0]);
+    const sheetsNeeded = Math.ceil(qty / pps);
+    return { sheet: best, sheetsNeeded };
+  }
+  return null;
 }
 
 function piecesOnSheet(pw, ph, sw, sh) {
@@ -269,8 +287,8 @@ function calc() {
   const cp = parseFloat(document.getElementById('inp-custom-price').value) || 0;
   const sst = parseFloat(document.getElementById('inp-sst').value) || 0;
 
-  const wraw = unit === 'in' ? rw / 12 : rw;
-  const hraw = unit === 'in' ? rh / 12 : rh;
+  const wraw = rw * TWPC_UNIT_TO_FT[unit];
+  const hraw = rh * TWPC_UNIT_TO_FT[unit];
   const wr = twpcRound(wraw);
   const hr = twpcRound(hraw);
 
@@ -306,31 +324,31 @@ function calc() {
   document.getElementById('alert-area').innerHTML = alerts;
 
   // Sheet selection uses ORIGINAL (un-rounded) dimensions for physical fit
-  const best = findBestSheet(wraw, hraw, qty);
+  const bestResult = findBestSheet(wraw, hraw, qty);
   document.getElementById('sheet-card').style.display = 'block';
 
-  if (best) {
-    const [sh, sw] = best;
+  if (bestResult) {
+    const { sheet: [sh, sw], sheetsNeeded } = bestResult;
     const ssqft = f2(sh * sw);
-    // Actual waste = sheet area - original size × qty
-    const actualUsed = f2(wraw * hraw * qty);
-    const waste = f2(ssqft - actualUsed);
     const pps = piecesOnSheet(wraw, hraw, sw, sh);
-    const sheetsNeeded = 1;
+    // Waste = total sheet area used - actual order area
+    const totalSheetArea = f2(ssqft * sheetsNeeded);
+    const actualUsed = f2(wraw * hraw * qty);
+    const waste = f2(totalSheetArea - actualUsed);
     const sheetTotal = f2(ssqft * sheetsNeeded * sp);
 
     document.getElementById('sheet-badge-area').innerHTML = `
       <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
         <div class="sheet-auto">&#10003; ${sw} &times; ${sh} ft &nbsp;(${ssqft} sq ft)</div>
-        <div class="fit-info">Fits ${pps} pcs on 1 sheet &mdash; 1 sheet for all ${qty} pcs &mdash; waste: ${waste.toFixed(2)} sq ft</div>
+        <div class="fit-info">${pps} pcs/sheet &mdash; ${sheetsNeeded} sheet${sheetsNeeded>1?'s':''} for ${qty} pcs &mdash; waste: ${waste.toFixed(2)} sq ft</div>
       </div>`;
     document.getElementById('disp-sw').value = sw + ' ft';
     document.getElementById('disp-sh').value = sh + ' ft';
     document.getElementById('disp-sarea').value = ssqft + ' sq ft';
-    document.getElementById('disp-sheets').value = sheetsNeeded + ' sheet';
+    document.getElementById('disp-sheets').value = sheetsNeeded + ' sheet' + (sheetsNeeded > 1 ? 's' : '');
     document.getElementById('disp-sheet-sub').value = rm(sheetTotal);
     document.getElementById('sheet-breakdown').textContent =
-      `${ssqft} sq ft × RM ${sp.toFixed(2)} × ${sheetsNeeded} sheet (actual cut: ${f2(wraw)} × ${f2(hraw)} ft × ${qty} pcs)`;
+      `${ssqft} sq ft × RM ${sp.toFixed(2)} × ${sheetsNeeded} sheet${sheetsNeeded>1?'s':''}`;
     document.getElementById('sheet-total').textContent = rm(sheetTotal);
 
     // Custom printing — billing uses TWPC rounded
@@ -355,14 +373,14 @@ function calc() {
     document.getElementById('grand-card').style.display = 'block';
     const grand = f2(sheetTotal + customTotal);
     document.getElementById('grand-lines').innerHTML = `
-      <div class="gline"><span>Standard sheet (${sw}&times;${sh} ft, 1 sheet)</span><span>${rm(sheetTotal)}</span></div>
+      <div class="gline"><span>Standard sheet (${sw}&times;${sh} ft &times; ${sheetsNeeded} sheet${sheetsNeeded>1?'s':''})</span><span>${rm(sheetTotal)}</span></div>
       <div class="gline"><span>Custom printing (${chargedArea} sq ft)</span><span>${rm(customSub)}</span></div>
       <div class="gline"><span>SST (${sst}%)</span><span>${rm(sstAmt)}</span></div>
       <div class="gline gtot"><span>Grand total</span><span>${rm(grand)}</span></div>
     `;
   } else {
     document.getElementById('sheet-badge-area').innerHTML =
-      `<div class="alert red">No single standard sheet can fit all ${qty} pieces. Please reduce quantity or size.</div>`;
+      `<div class="alert red">Order size exceeds all standard sheets. Maximum is 7 &times; 44 ft.</div>`;
     ['custom-card','grand-card'].forEach(id => document.getElementById(id).style.display = 'none');
   }
 }
