@@ -397,13 +397,21 @@ function updateRow(id, field, val){
   ncRender();
 }
 
+function ncRoundUp(val){
+  const intPart = Math.floor(val);
+  const dec = parseFloat((val - intPart).toFixed(4));
+  if (dec === 0) return val;
+  if (dec <= 0.5) return intPart + 0.5;
+  return intPart + 1.0;
+}
+
 function ncRender(){
   let totalArea = 0, totalSub = 0, totalSst = 0, totalGrand = 0;
 
   document.getElementById('row-body').innerHTML = ncRows.map(r => {
     const factor = NC_UNIT_TO_FT[r.unit];
     const area = f2(r.w * factor * r.h * factor * (r.qty || 1));
-    const rounded = Math.ceil(area);
+    const rounded = ncRoundUp(area);
     const sub = f2(rounded * r.price);
     const sstAmt = f2(sub * r.sst / 100);
     const rowTotal = f2(sub + sstAmt);
