@@ -398,11 +398,7 @@ function updateRow(id, field, val){
 }
 
 function ncRoundUp(val){
-  const intPart = Math.floor(val);
-  const dec = parseFloat((val - intPart).toFixed(4));
-  if (dec === 0) return val;
-  if (dec <= 0.5) return intPart + 0.5;
-  return intPart + 1.0;
+  return Math.ceil(val * 2) / 2;
 }
 
 function ncRender(){
