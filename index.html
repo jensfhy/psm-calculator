@@ -262,13 +262,20 @@ function findBestSheet(pw, ph, qty) {
   if (candidates.length) {
     return { sheet: candidates.sort((a, b) => (a[0]*a[1]) - (b[0]*b[1]))[0], sheetsNeeded: 1 };
   }
-  // Fall back: find smallest sheet that fits at least 1 piece, use multiple sheets
+  // Fall back: find sheet that fits at least 1 piece, pick one needing fewest sheets (then least waste)
   const single = SHEETS.filter(([sh, sw]) => sw >= pw && sh >= ph);
   if (single.length) {
-    const best = single.sort((a, b) => (a[0]*a[1]) - (b[0]*b[1]))[0];
-    const pps = piecesOnSheet(pw, ph, best[1], best[0]);
-    const sheetsNeeded = Math.ceil(qty / pps);
-    return { sheet: best, sheetsNeeded };
+    const ranked = single.map(([sh, sw]) => {
+      const pps = Math.max(
+        Math.floor(sw / pw) * Math.floor(sh / ph),
+        Math.floor(sw / ph) * Math.floor(sh / pw),
+        1
+      );
+      const sheetsNeeded = Math.ceil(qty / pps);
+      const totalArea = sh * sw * sheetsNeeded;
+      return { sheet: [sh, sw], pps, sheetsNeeded, totalArea };
+    }).sort((a, b) => a.sheetsNeeded - b.sheetsNeeded || a.totalArea - b.totalArea);
+    return { sheet: ranked[0].sheet, sheetsNeeded: ranked[0].sheetsNeeded };
   }
   return null;
 }
