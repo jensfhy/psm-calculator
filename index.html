@@ -406,7 +406,7 @@ function ncRender(){
 
   document.getElementById('row-body').innerHTML = ncRows.map(r => {
     const factor = NC_UNIT_TO_FT[r.unit];
-    const area = f2(r.w * factor * r.h * factor * (r.qty || 1));
+    const area = r.w * factor * r.h * factor * (r.qty || 1);
     const rounded = ncRoundUp(area);
     const sub = f2(rounded * r.price);
     const sstAmt = f2(sub * r.sst / 100);
